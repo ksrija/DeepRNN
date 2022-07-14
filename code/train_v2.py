@@ -174,36 +174,36 @@ def create_dirs(hparams):
     """create directories"""
     assert hparams.exprs_dir
     exprs_dir = hparams.exprs_dir
-    if not tf.gfile.Exists(exprs_dir):
-        tf.gfile.MakeDirs(exprs_dir)
+    if not tf.io.gfile.exists(exprs_dir):
+        tf.io.gfile.makedirs(exprs_dir)
     utils.print_out("# experiments directory: %s " % exprs_dir)
     expr_dir = os.path.join(exprs_dir, hparams.expr_name)
-    if not tf.gfile.Exists(expr_dir):
-        tf.gfile.MakeDirs(expr_dir)
+    if not tf.io.gfile.exists(expr_dir):
+        tf.io.gfile.makedirs(expr_dir)
     utils.print_out("# -experiment directory: %s " % expr_dir)
     config_dir = os.path.join(expr_dir, "config")
-    if not tf.gfile.Exists(config_dir):
-        tf.gfile.MakeDirs(config_dir)
+    if not tf.io.gfile.exists(config_dir):
+        tf.io.gfile.makedirs(config_dir)
     utils.print_out("# --config directory: %s " % config_dir)
     log_dir = os.path.join(expr_dir, "log")
-    if not tf.gfile.Exists(log_dir):
-        tf.gfile.MakeDirs(log_dir)
+    if not tf.io.gfile.exists(log_dir):
+        tf.io.gfile.makedirs(log_dir)
     utils.print_out("# --log directory: %s " % log_dir)
     data_dir = os.path.join(expr_dir, "data")
-    if not tf.gfile.Exists(data_dir):
-        tf.gfile.MakeDirs(data_dir)
+    if not tf.io.gfile.exists(data_dir):
+        tf.io.gfile.makedirs(data_dir)
     utils.print_out("# --data directory: %s " % data_dir)
     model_dir = os.path.join(expr_dir, "model")
-    if not tf.gfile.Exists(model_dir):
-        tf.gfile.MakeDirs(model_dir)
+    if not tf.io.gfile.exists(model_dir):
+        tf.io.gfile.makedirs(model_dir)
     utils.print_out("# --model directory: %s " % model_dir)
     figure_dir = os.path.join(expr_dir, "figure")
-    if not tf.gfile.Exists(figure_dir):
-        tf.gfile.MakeDirs(figure_dir)
+    if not tf.io.gfile.exists(figure_dir):
+        tf.io.gfile.makedirs(figure_dir)
     utils.print_out("# --figure directory: %s " % figure_dir)
     result_dir = os.path.join(expr_dir, "result")
-    if not tf.gfile.Exists(result_dir):
-        tf.gfile.MakeDirs(result_dir)
+    if not tf.io.gfile.exists(result_dir):
+        tf.io.gfile.makedirs(result_dir)
     utils.print_out("# --result directory: %s " % result_dir)
     return expr_dir, config_dir, log_dir, data_dir, model_dir, figure_dir, result_dir
 
@@ -211,8 +211,8 @@ def create_dirs(hparams):
 def check_and_save_hparams(out_dir, hparams):
     """Save hparams."""
     hparams_file = os.path.join(out_dir, "hparams")
-    if tf.gfile.Exists(hparams_file):
-        with codecs.getreader("utf-8")(tf.gfile.GFile(hparams_file, "rb")) as f:
+    if tf.io.gfile.exists(hparams_file):
+        with codecs.getreader("utf-8")(tf.io.gfile.GFile(hparams_file, "rb")) as f:
             origin_hparams = json.load(f)
             origin_hparams = tf.contrib.training.HParams(**origin_hparams)
         wrong_keys = []
@@ -246,7 +246,7 @@ def check_and_save_hparams(out_dir, hparams):
         utils.print_out(
             "  not old hparams found, create new hparams to %s" % hparams_file
         )
-        with codecs.getwriter("utf-8")(tf.gfile.GFile(hparams_file, "wb")) as f:
+        with codecs.getwriter("utf-8")(tf.io.gfile.GFile(hparams_file, "wb")) as f:
             f.write(hparams.to_json(indent=4))
 
 
@@ -258,7 +258,7 @@ def main():
     hparams = tf.contrib.training.HParams(**vars(args))
     # check GPU device
     utils.print_out(
-        "# Devices visible to TensorFlow: %s" % repr(tf.Session().list_devices())
+        "# Devices visible to TensorFlow: %s" % repr(tf.compat.v1.Session().list_devices())
     )
     #  create dirs
     (

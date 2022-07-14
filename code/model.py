@@ -8,25 +8,56 @@ import numpy as np
 import process
 import utils
 
-TrainForwardOutputTuple = collections.namedtuple("TrainForwardOutputTuplee",
-                                                 ("train_summary", "train_loss",  # need to change to train_forward_loss
-                                                  "predict_beat_count",
-                                                  "global_step", "batch_size", "grad_norm",
-                                                  "learning_rate", "train_src_ref", "train_tgt_ref",
-                                                  "train_src2tgt_output", "train_tgt2src_output",
-                                                  "src_seq_len", "tgt_seq_len"))
+TrainForwardOutputTuple = collections.namedtuple(
+    "TrainForwardOutputTuplee",
+    (
+        "train_summary",
+        "train_loss",  # need to change to train_forward_loss
+        "predict_beat_count",
+        "global_step",
+        "batch_size",
+        "grad_norm",
+        "learning_rate",
+        "train_src_ref",
+        "train_tgt_ref",
+        "train_src2tgt_output",
+        "train_tgt2src_output",
+        "src_seq_len",
+        "tgt_seq_len",
+    ),
+)
 
-TrainBackwardOutputTuple = collections.namedtuple("TrainBackwardOutputTuplee",
-                                                  ("train_summary", "train_backward_loss",
-                                                   "global_step", "batch_size", "grad_norm",
-                                                   "learning_rate", "train_src_ref", "train_tgt_ref",
-                                                   "train_src2tgt2src_output", "train_tgt2src2tgt_output"))
+TrainBackwardOutputTuple = collections.namedtuple(
+    "TrainBackwardOutputTuplee",
+    (
+        "train_summary",
+        "train_backward_loss",
+        "global_step",
+        "batch_size",
+        "grad_norm",
+        "learning_rate",
+        "train_src_ref",
+        "train_tgt_ref",
+        "train_src2tgt2src_output",
+        "train_tgt2src2tgt_output",
+    ),
+)
 
-EvalOutputTuple = collections.namedtuple("EvalOutputTuple", ("eval_loss", "predict_beat_count", "batch_size"))
+EvalOutputTuple = collections.namedtuple(
+    "EvalOutputTuple", ("eval_loss", "predict_beat_count", "batch_size")
+)
 
-InferOutputTuple = collections.namedtuple("InferOutputTuple",
-                                          ("infer_tgt_output", "infer_tgt_ref", "infer_loss", "predict_beat_count",
-                                           "batch_size"))
+InferOutputTuple = collections.namedtuple(
+    "InferOutputTuple",
+    (
+        "infer_tgt_output",
+        "infer_tgt_ref",
+        "infer_loss",
+        "predict_beat_count",
+        "batch_size",
+    ),
+)
+
 
 class Model(object):
     """
@@ -59,7 +90,7 @@ class Model(object):
             self.num_uni_layers = hparams.num_uni_layers
 
         # Set num layers
-        self.num_layers=hparams.num_layers
+        self.num_layers = hparams.num_layers
         # Set num residual layers
         self.num_residual_layers = hparams.num_residual_layers
 
@@ -83,8 +114,9 @@ class Model(object):
             self.top_scope = tf.get_variable_scope()
 
             # Initializer
-            initializer = tf.random_uniform_initializer(-hparams.init_weight, hparams.init_weight,
-                                                        seed=hparams.random_seed)
+            initializer = tf.random_uniform_initializer(
+                -hparams.init_weight, hparams.init_weight, seed=hparams.random_seed
+            )
             self.top_scope.set_initializer(initializer)
             ## so the initializer will be the default initializer for the following variable in this variable scope
             "---------"
@@ -92,14 +124,22 @@ class Model(object):
             # common components in three mode
             if self.architecture == "deepRNN":
                 # lstm (bi_lstm, then stacked with uni_lstm)
-                self.src_bi_lstm, self.src_bi_lstm_condition = self._build_bi_lstm(hparams)
-                self.src_uni_lstm, self.src_uni_lstm_condition = self._build_uni_lstm(hparams)
-                self.tgt_bi_lstm, self.tgt_bi_lstm_condition = self._build_bi_lstm(hparams)
-                self.tgt_uni_lstm, self.tgt_uni_lstm_condition = self._build_uni_lstm(hparams)
+                self.src_bi_lstm, self.src_bi_lstm_condition = self._build_bi_lstm(
+                    hparams
+                )
+                self.src_uni_lstm, self.src_uni_lstm_condition = self._build_uni_lstm(
+                    hparams
+                )
+                self.tgt_bi_lstm, self.tgt_bi_lstm_condition = self._build_bi_lstm(
+                    hparams
+                )
+                self.tgt_uni_lstm, self.tgt_uni_lstm_condition = self._build_uni_lstm(
+                    hparams
+                )
 
                 # Projector
-                self.src_projector = self._build_projector(hparams, field='src')
-                self.tgt_projector = self._build_projector(hparams, field='tgt')
+                self.src_projector = self._build_projector(hparams, field="src")
+                self.tgt_projector = self._build_projector(hparams, field="tgt")
             else:
                 raise ValueError("Unknown architecture_type %s" % hparams.lstm_type)
 
@@ -111,23 +151,33 @@ class Model(object):
             # Saver
             self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=5)
 
-    def _single_cell(self, unit_type, num_units, forget_bias, dropout, mode, residual_connection=False):
+    def _single_cell(
+        self,
+        unit_type,
+        num_units,
+        forget_bias,
+        dropout,
+        mode,
+        residual_connection=False,
+    ):
         """Create an instance of a single RNN cell."""
         # dropout (= 1 - keep_prob) is set to 0 during eval and infer
         dropout = dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 0.0
         # Cell Type
         if unit_type == "lstm":
             utils.print_out("  LSTM, forget_bias=%g" % forget_bias, new_line=False)
-            single_cell = tf.nn.rnn_cell.LSTMCell(
-                num_units,
-                forget_bias=forget_bias)
+            single_cell = tf.nn.rnn_cell.LSTMCell(num_units, forget_bias=forget_bias)
         else:
             raise ValueError("Unknown unit type %s!" % unit_type)
         # Dropout (= 1 - keep_prob)
         if dropout > 0.0:
             single_cell = tf.nn.rnn_cell.DropoutWrapper(
-                cell=single_cell, input_keep_prob=(1.0 - dropout))
-            utils.print_out("  %s, dropout=%g " % (type(single_cell).__name__, dropout), new_line=False)
+                cell=single_cell, input_keep_prob=(1.0 - dropout)
+            )
+            utils.print_out(
+                "  %s, dropout=%g " % (type(single_cell).__name__, dropout),
+                new_line=False,
+            )
         # Residual
         if residual_connection:
             single_cell = tf.nn.rnn_cell.ResidualWrapper(single_cell)
@@ -145,7 +195,8 @@ class Model(object):
                 forget_bias=self.forget_bias,
                 dropout=self.dropout,
                 mode=self.mode,
-                residual_connection=(i >= (num_layers - num_residual_layers)))
+                residual_connection=(i >= (num_layers - num_residual_layers)),
+            )
             utils.print_out("", new_line=True)
             cell_list.append(single_cell)
 
@@ -158,7 +209,10 @@ class Model(object):
         utils.print_out("# Build bidirectional lstm")
         num_bi_layers = self.num_bi_layers
         num_bi_residual_layers = 0
-        utils.print_out("  num_bi_layers = %d, num_bi_residual_layers=%d" % (num_bi_layers, num_bi_residual_layers))
+        utils.print_out(
+            "  num_bi_layers = %d, num_bi_residual_layers=%d"
+            % (num_bi_layers, num_bi_residual_layers)
+        )
         # Construct forward and backward cells
         fw_cell = self._build_cell(num_bi_layers, num_bi_residual_layers)
         bw_cell = self._build_cell(num_bi_layers, num_bi_residual_layers)
@@ -170,7 +224,10 @@ class Model(object):
         utils.print_out("# Build unidirectional lstm")
         num_uni_layers = self.num_uni_layers
         num_uni_residual_layers = self.num_uni_layers - 1
-        utils.print_out("  num_layers = %d, num_residual_layers=%d" % (num_uni_layers, num_uni_residual_layers))
+        utils.print_out(
+            "  num_layers = %d, num_residual_layers=%d"
+            % (num_uni_layers, num_uni_residual_layers)
+        )
         cell = self._build_cell(num_uni_layers, num_uni_residual_layers)
         uni_lstm = cell
         uni_lstm_condition = ("uni", None)
@@ -199,7 +256,10 @@ class Model(object):
         # lstm type is related to the input, while the projector used is related to output!!!
         if direction in ["src2tgt"]:
             bi_lstm, bi_lstm_condition = self.src_bi_lstm, self.src_bi_lstm_condition
-            uni_lstm, uni_lstm_condition = self.src_uni_lstm, self.src_uni_lstm_condition
+            uni_lstm, uni_lstm_condition = (
+                self.src_uni_lstm,
+                self.src_uni_lstm_condition,
+            )
             lstm_scope = "src_lstm"
 
         lstm_list = [bi_lstm, uni_lstm]  # bi lstm then stacked with uni lstm
@@ -225,13 +285,24 @@ class Model(object):
                 lstm_type = lstm_condition[0]
                 if lstm_type == "uni":
                     lstm_outputs, lstm_state = tf.nn.dynamic_rnn(
-                        cell=lstm, inputs=input, dtype=self.dtype, sequence_length=seq_len, swap_memory=True, scope="")
+                        cell=lstm,
+                        inputs=input,
+                        dtype=self.dtype,
+                        sequence_length=seq_len,
+                        swap_memory=True,
+                        scope="",
+                    )
                 elif lstm_type == "bi":
                     fw_cell, bw_cell = lstm
-                    bi_outputs, bi_lstm_state = tf.nn.bidirectional_dynamic_rnn(fw_cell, bw_cell, input,
-                                                                                dtype=self.dtype,
-                                                                                sequence_length=seq_len,
-                                                                                swap_memory=True, scope="")
+                    bi_outputs, bi_lstm_state = tf.nn.bidirectional_dynamic_rnn(
+                        fw_cell,
+                        bw_cell,
+                        input,
+                        dtype=self.dtype,
+                        sequence_length=seq_len,
+                        swap_memory=True,
+                        scope="",
+                    )
                     lstm_outputs = tf.concat(bi_outputs, -1)
                     num_bi_layers = lstm_condition[1]
                     if num_bi_layers == 1:
@@ -248,14 +319,34 @@ class Model(object):
 
         return lstm_outputs, lstm_state
 
-    def compute_loss(self, hparams, direction, lstm_input_given, ref_given, seq_len_given, feature_size):
+    def compute_loss(
+        self,
+        hparams,
+        direction,
+        lstm_input_given,
+        ref_given,
+        seq_len_given,
+        feature_size,
+    ):
 
-        lstm_input, ref, seq_len = self._set_input_ref(direction, lstm_input_given, ref_given, seq_len_given)
-        lstm_list, lstm_condition_list, lstm_scope, projector, projector_scope = self._set_lstm_projector(direction)
-        lstm_output, lstm_state = self._encode(lstm_scope, lstm_input, seq_len, lstm_list, lstm_condition_list)
+        lstm_input, ref, seq_len = self._set_input_ref(
+            direction, lstm_input_given, ref_given, seq_len_given
+        )
+        (
+            lstm_list,
+            lstm_condition_list,
+            lstm_scope,
+            projector,
+            projector_scope,
+        ) = self._set_lstm_projector(direction)
+        lstm_output, lstm_state = self._encode(
+            lstm_scope, lstm_input, seq_len, lstm_list, lstm_condition_list
+        )
         output = projector(lstm_output)
         loss = tf.sqrt(
-            tf.reduce_sum(tf.square(output - ref)) / (tf.to_double(self.batch_size * hparams.src_len * feature_size)))
+            tf.reduce_sum(tf.square(output - ref))
+            / (tf.to_double(self.batch_size * hparams.src_len * feature_size))
+        )
         return loss, output
 
     def forward(self, hparams, directions=None):
@@ -264,13 +355,20 @@ class Model(object):
         ## forward directions just include ["src2tgt", "tgt2src", "src2src", "tgt2tgt"] at most
 
         if "src2tgt" in directions:
-            src2tgt_loss, src2tgt_output = self.compute_loss(hparams, direction="src2tgt", lstm_input_given=None,
-                                                             ref_given=None, seq_len_given=None,
+            src2tgt_loss, src2tgt_output = self.compute_loss(
+                hparams,
+                direction="src2tgt",
+                lstm_input_given=None,
+                ref_given=None,
+                seq_len_given=None,
+            )
         forward_loss = src2tgt_loss
         return forward_loss, src2tgt_output
 
     def set_mode_phase(self, hparams):
-        self.predict_beat_count = tf.math.reduce_sum(self.iterator.target_sequence_length)  # need modification
+        self.predict_beat_count = tf.math.reduce_sum(
+            self.iterator.target_sequence_length
+        )  # need modification
         if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
 
             # set optimizer
@@ -283,8 +381,13 @@ class Model(object):
             # forward phase
             # self.train_forward_loss, self.src2tgt_output, self.tgt2src_output = self.forward(
             #    hparams, directions=["src2tgt", "tgt2src", "src2src", "tgt2tgt"])
-            self.train_forward_loss, self.src2tgt_output, self.tgt2src_output = self.forward(
-                hparams, directions=self.forward_directions)  # this is for test of basic unidirection seq2seq model
+            (
+                self.train_forward_loss,
+                self.src2tgt_output,
+                self.tgt2src_output,
+            ) = self.forward(
+                hparams, directions=self.forward_directions
+            )  # this is for test of basic unidirection seq2seq model
 
             # test variable
             utils.test_trainable_variables()
@@ -292,28 +395,43 @@ class Model(object):
             # Gradients
             params = tf.trainable_variables()
             forward_gradients = tf.gradients(self.train_forward_loss, params)
-            forward_clipped_grads, self.forward_grad_norm = tf.clip_by_global_norm(forward_gradients, 5.0)
+            forward_clipped_grads, self.forward_grad_norm = tf.clip_by_global_norm(
+                forward_gradients, 5.0
+            )
 
             # key point: to update the parameter
-            self.forward_update = self.optimizer.apply_gradients(zip(forward_clipped_grads, params),
-                                                                 global_step=self.global_step)
+            self.forward_update = self.optimizer.apply_gradients(
+                zip(forward_clipped_grads, params), global_step=self.global_step
+            )
             ## in this step, global step will increase by 1!!
 
             # Summary
             self.forward_train_summary = tf.summary.merge(
-                [tf.summary.scalar("lr", self.learning_rate),
-                 tf.summary.scalar("forward_train_loss", self.train_forward_loss),
-                 tf.summary.scalar("forward_grad_norm", self.forward_grad_norm),
-                 tf.summary.scalar("forward_clipped_gradient", tf.global_norm(forward_clipped_grads))])
+                [
+                    tf.summary.scalar("lr", self.learning_rate),
+                    tf.summary.scalar("forward_train_loss", self.train_forward_loss),
+                    tf.summary.scalar("forward_grad_norm", self.forward_grad_norm),
+                    tf.summary.scalar(
+                        "forward_clipped_gradient",
+                        tf.global_norm(forward_clipped_grads),
+                    ),
+                ]
+            )
             "---------------"
 
             # backward phase
-            self.src_ref_given = tf.placeholder(self.dtype, shape=(self.batch_size, self.length, self.src_feature_size))
-            self.tgt_ref_given = tf.placeholder(self.dtype, shape=(self.batch_size, self.length, self.tgt_feature_size))
-            self.src2tgt_output_given = tf.placeholder(self.dtype,
-                                                       shape=(self.batch_size, self.length, self.tgt_feature_size))
-            self.tgt2src_output_given = tf.placeholder(self.dtype,
-                                                       shape=(self.batch_size, self.length, self.src_feature_size))
+            self.src_ref_given = tf.placeholder(
+                self.dtype, shape=(self.batch_size, self.length, self.src_feature_size)
+            )
+            self.tgt_ref_given = tf.placeholder(
+                self.dtype, shape=(self.batch_size, self.length, self.tgt_feature_size)
+            )
+            self.src2tgt_output_given = tf.placeholder(
+                self.dtype, shape=(self.batch_size, self.length, self.tgt_feature_size)
+            )
+            self.tgt2src_output_given = tf.placeholder(
+                self.dtype, shape=(self.batch_size, self.length, self.src_feature_size)
+            )
             """
             self.src_sos_given = tf.placeholder(self.dtype, shape=(1, self.src_feature_size))
             self.tgt_sos_given = tf.placeholder(self.dtype, shape=(1, self.tgt_feature_size))
@@ -321,11 +439,20 @@ class Model(object):
             self.src_seq_len_given = tf.placeholder(tf.int32, shape=(self.batch_size))
             self.tgt_seq_len_given = tf.placeholder(tf.int32, shape=(self.batch_size))
 
-            self.train_backward_loss, self.src2tgt2src_output, self.tgt2src2tgt_output = self.backward(
-                hparams, directions=self.backward_directions,
-                src2tgt_output=self.src2tgt_output_given, tgt2src_output=self.tgt2src_output_given,
-                src_ref=self.src_ref_given, tgt_ref=self.tgt_ref_given,
-                src_seq_len=self.src_seq_len_given, tgt_seq_len=self.tgt_seq_len_given)
+            (
+                self.train_backward_loss,
+                self.src2tgt2src_output,
+                self.tgt2src2tgt_output,
+            ) = self.backward(
+                hparams,
+                directions=self.backward_directions,
+                src2tgt_output=self.src2tgt_output_given,
+                tgt2src_output=self.tgt2src_output_given,
+                src_ref=self.src_ref_given,
+                tgt_ref=self.tgt_ref_given,
+                src_seq_len=self.src_seq_len_given,
+                tgt_seq_len=self.tgt_seq_len_given,
+            )
 
             # test variable
             utils.test_trainable_variables()
@@ -333,24 +460,36 @@ class Model(object):
             # Gradients
             params = tf.trainable_variables()
             backward_gradients = tf.gradients(self.train_backward_loss, params)
-            backward_clipped_grads, self.backward_grad_norm = tf.clip_by_global_norm(backward_gradients, 5.0)
+            backward_clipped_grads, self.backward_grad_norm = tf.clip_by_global_norm(
+                backward_gradients, 5.0
+            )
 
             # key point: to update the parameter
-            self.backward_update = self.optimizer.apply_gradients(zip(backward_clipped_grads, params))
+            self.backward_update = self.optimizer.apply_gradients(
+                zip(backward_clipped_grads, params)
+            )
             # here we doesn't list the global step to avoid increment by 1
 
             # Summary
             self.backward_train_summary = tf.summary.merge(
-                [tf.summary.scalar("lr", self.learning_rate),
-                 tf.summary.scalar("backward_train_loss", self.train_backward_loss),
-                 tf.summary.scalar("backward_grad_norm", self.backward_grad_norm),
-                 tf.summary.scalar("backward_clipped_gradient", tf.global_norm(backward_clipped_grads))])
+                [
+                    tf.summary.scalar("lr", self.learning_rate),
+                    tf.summary.scalar("backward_train_loss", self.train_backward_loss),
+                    tf.summary.scalar("backward_grad_norm", self.backward_grad_norm),
+                    tf.summary.scalar(
+                        "backward_clipped_gradient",
+                        tf.global_norm(backward_clipped_grads),
+                    ),
+                ]
+            )
 
         elif self.mode == tf.contrib.learn.ModeKeys.EVAL:
             self.eval_loss, _, _ = self.forward(hparams, directions=["src2tgt"])
 
         elif self.mode == tf.contrib.learn.ModeKeys.INFER:
-            self.infer_loss, self.infer_target_output, _ = self.forward(hparams, directions=["src2tgt"])
+            self.infer_loss, self.infer_target_output, _ = self.forward(
+                hparams, directions=["src2tgt"]
+            )
 
         """"------------------------"""
 
@@ -360,50 +499,70 @@ class Model(object):
 
     def train_forward(self, sess):
         assert self.mode == tf.contrib.learn.ModeKeys.TRAIN
-        output_tuple = TrainForwardOutputTuple(train_summary=self.forward_train_summary,
-                                               train_loss=self.train_forward_loss,
-                                               predict_beat_count=self.predict_beat_count,
-                                               global_step=self.global_step,
-                                               batch_size=self.batch_size_tensor,
-                                               grad_norm=self.forward_grad_norm,
-                                               learning_rate=self.learning_rate,
-                                               train_src_ref=self.iterator.source_ref,
-                                               train_tgt_ref=self.iterator.target_ref,
-                                               train_src2tgt_output=self.src2tgt_output,
-                                               src_seq_len=self.iterator.source_sequence_length,
-                                               tgt_seq_len=self.iterator.target_sequence_length)
+        output_tuple = TrainForwardOutputTuple(
+            train_summary=self.forward_train_summary,
+            train_loss=self.train_forward_loss,
+            predict_beat_count=self.predict_beat_count,
+            global_step=self.global_step,
+            batch_size=self.batch_size_tensor,
+            grad_norm=self.forward_grad_norm,
+            learning_rate=self.learning_rate,
+            train_src_ref=self.iterator.source_ref,
+            train_tgt_ref=self.iterator.target_ref,
+            train_src2tgt_output=self.src2tgt_output,
+            src_seq_len=self.iterator.source_sequence_length,
+            tgt_seq_len=self.iterator.target_sequence_length,
+        )
         return sess.run([self.forward_update, output_tuple])
 
     def train_backward(self, sess, input):
         assert self.mode == tf.contrib.learn.ModeKeys.TRAIN
-        src_ref, tgt_ref, src2tgt_output, tgt2src_output, src_seq_len, tgt_seq_len = input
-        feed_dict = {self.src_ref_given: src_ref, self.tgt_ref_given: tgt_ref,
-                     self.src2tgt_output_given: src2tgt_output, self.tgt2src_output_given: tgt2src_output,
-                     self.src_seq_len_given: src_seq_len, self.tgt_seq_len_given: tgt_seq_len}
-        output_tuple = TrainBackwardOutputTuple(train_summary=self.backward_train_summary,
-                                                train_backward_loss=self.train_backward_loss,
-                                                global_step=self.global_step,
-                                                batch_size=self.batch_size_tensor,
-                                                grad_norm=self.backward_grad_norm,
-                                                learning_rate=self.learning_rate,
-                                                train_src_ref=self.src_ref_given,
-                                                train_tgt_ref=self.tgt_ref_given)
+        (
+            src_ref,
+            tgt_ref,
+            src2tgt_output,
+            tgt2src_output,
+            src_seq_len,
+            tgt_seq_len,
+        ) = input
+        feed_dict = {
+            self.src_ref_given: src_ref,
+            self.tgt_ref_given: tgt_ref,
+            self.src2tgt_output_given: src2tgt_output,
+            self.tgt2src_output_given: tgt2src_output,
+            self.src_seq_len_given: src_seq_len,
+            self.tgt_seq_len_given: tgt_seq_len,
+        }
+        output_tuple = TrainBackwardOutputTuple(
+            train_summary=self.backward_train_summary,
+            train_backward_loss=self.train_backward_loss,
+            global_step=self.global_step,
+            batch_size=self.batch_size_tensor,
+            grad_norm=self.backward_grad_norm,
+            learning_rate=self.learning_rate,
+            train_src_ref=self.src_ref_given,
+            train_tgt_ref=self.tgt_ref_given,
+        )
 
         return sess.run([self.backward_update, output_tuple], feed_dict=feed_dict)
 
     def eval(self, sess):
         """Execute eval graph."""
         assert self.mode == tf.contrib.learn.ModeKeys.EVAL
-        output_tuple = EvalOutputTuple(eval_loss=self.eval_loss,
-                                       predict_beat_count=self.predict_beat_count,
-                                       batch_size=self.batch_size_tensor)
+        output_tuple = EvalOutputTuple(
+            eval_loss=self.eval_loss,
+            predict_beat_count=self.predict_beat_count,
+            batch_size=self.batch_size_tensor,
+        )
         return sess.run(output_tuple)
 
     def infer(self, sess):
         assert self.mode == tf.contrib.learn.ModeKeys.INFER
-        output_tuple = InferOutputTuple(infer_tgt_output=self.infer_target_output,
-                                        infer_tgt_ref=self.iterator.target_ref,
-                                        infer_loss=self.infer_loss,
-                                        predict_beat_count=self.predict_beat_count,
-                                        batch_size=self.batch_size_tensor)
+        output_tuple = InferOutputTuple(
+            infer_tgt_output=self.infer_target_output,
+            infer_tgt_ref=self.iterator.target_ref,
+            infer_loss=self.infer_loss,
+            predict_beat_count=self.predict_beat_count,
+            batch_size=self.batch_size_tensor,
+        )
         return sess.run(output_tuple)
