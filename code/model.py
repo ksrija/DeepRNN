@@ -8,7 +8,6 @@ import numpy as np
 import process
 import utils
 
-
 TrainForwardOutputTuple = collections.namedtuple(
     "TrainForwardOutputTuplee",
     (
