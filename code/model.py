@@ -160,6 +160,8 @@ class Model(object):
         mode,
         residual_connection=False,
     ):
+
+    
         """Create an instance of a single RNN cell."""
         # dropout (= 1 - keep_prob) is set to 0 during eval and infer
         dropout = dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 0.0
